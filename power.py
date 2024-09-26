@@ -12,7 +12,7 @@ import shutil
 import psutil
 import datetime
 
-scale_factor = 100
+scale_factor = 1000
 
 datadir = f'gen/sf{scale_factor}'
 template_db_file = f'{datadir}/tpch_template.duckdb'
@@ -88,7 +88,7 @@ if not os.path.exists(template_db_file):
 else:
 	print(f"cached db from {template_db_file}")
 
-shutil.copyfile(template_db_file, db_file)
+shutil.move(template_db_file, db_file)
 con0 = duckdb.connect(db_file)
 con0.execute(f"SET wal_autocheckpoint='{scale_factor}MB'")
 # con0.execute("SET threads='1'")
