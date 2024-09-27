@@ -91,7 +91,6 @@ else:
 shutil.move(template_db_file, db_file)
 con0 = duckdb.connect(db_file)
 con0.execute(f"SET wal_autocheckpoint='{scale_factor}MB'")
-con0.execute("SET max_temp_directory_size=500GB")
 # con0.execute("SET threads='1'")
 
 def query(n):
