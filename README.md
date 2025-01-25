@@ -1,6 +1,21 @@
 # DuckDB TPC-H implementation
 
-Install the required packages from `requirements.txt`.
+## Prerequisites
+
+Install the required packages from `requirements.txt`:
+
+```bash
+pip install -r requirements.txt
+```
+
+Build the `dbgen`"
+
+```bash
+cd tpch_tools_3.0.1/dbgen
+make
+```
+
+## Running the benchmark
 
 Set the desired scale factor, e.g.:
 
