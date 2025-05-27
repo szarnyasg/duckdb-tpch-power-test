@@ -116,11 +116,6 @@ def RF(con0, n):
 	print(f"done refresh {n}")
 
 
-def timeit(fun, p):
-	start = time.time()
-	fun(p)
-	return time.time() - start
-
 def refresh(ns):
 	for n in ns:
 		RF(con0, n)
@@ -128,8 +123,8 @@ def refresh(ns):
 n_refresh = 10
 
 start = time.time()
-time_rf1 = timeit(RF1, 1)
-time_rf2 = timeit(RF2, 1)
+RF1(1)
+RF2(1)
 refresh_duration = time.time() - start
 
 #tpch_power_at_size = round((3600*scale_factor)/ ((time_q*time_rf1*time_rf2)**(1/24)), 2)
