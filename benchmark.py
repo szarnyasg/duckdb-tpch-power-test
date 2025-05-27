@@ -71,60 +71,49 @@ threading.Thread(target=monitor).start()
 
 print(f"Begin loading")
 start = time.time()
-con = duckdb.connect()
-con.sql("ATTACH 'ducklake:metadata.ducklake' AS my_ducklake (DATA_PATH 'data_files');")
-con.sql("USE my_ducklake;")
+con0 = duckdb.connect()
+con0.sql("ATTACH 'ducklake:metadata.ducklake' AS my_ducklake (DATA_PATH 'data_files');")
+con0.sql("USE my_ducklake;")
 schema = pathlib.Path('schema.sql').read_text()
-con.execute(schema)
+con0.execute(schema)
 for t in ['customer', 'lineitem', 'nation', 'orders', 'part', 'partsupp', 'region', 'supplier']:
-	con.execute(f"COPY {t} FROM '{datadir}/{t}.tbl'")
-con.commit()
-con.execute("CHECKPOINT")
-con.execute("CHECKPOINT")
-con.close()
+	con0.execute(f"COPY {t} FROM '{datadir}/{t}.tbl'")
+con0.commit()
+
 load_duration = time.time() - start
 print(f"Done loading in {load_duration:.1f} seconds")
-
-shutil.copyfile(template_db_file, db_file)
-con0 = duckdb.connect(db_file)
-con0.execute(f"SET wal_autocheckpoint='{scale_factor}MB'")
-# con0.execute("SET threads='1'")
 
 def query(n):
 	pass
 
 def RF1(n):
-	con = con0.cursor()
-	con.begin()
+	con0.begin()
 	lineitem = f"{datadir}/lineitem.tbl.u{n}{ext}"
 	orders = f"{datadir}/orders.tbl.u{n}{ext}"
-	con.execute(f"INSERT INTO lineitem FROM '{lineitem}'")
-	con.execute(f"INSERT INTO orders FROM '{orders}'")
-	con.commit()
-	con.close()
+	con0.execute(f"INSERT INTO lineitem FROM '{lineitem}'")
+	con0.execute(f"INSERT INTO orders FROM '{orders}'")
+	con0.commit()
 
 
 def RF2(n):
-	con = con0.cursor()
-	con.begin()
+	con0.begin()
 	delete = f"{datadir}/delete.{n}{ext}"
-	con.execute(f"DELETE FROM orders WHERE o_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
-	con.execute(f"DELETE FROM lineitem WHERE l_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
-	con.commit()
-	con.close()
+	con0.execute(f"DELETE FROM orders WHERE o_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
+	con0.execute(f"DELETE FROM lineitem WHERE l_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
+	con0.commit()
 
 
-def RF(con, n):	
+def RF(con0, n):	
 	print(f"start refresh {n}")
-	con.begin()
+	con0.begin()
 	lineitem = f"{datadir}/lineitem.tbl.u{n}{ext}"
 	orders = f"{datadir}/orders.tbl.u{n}{ext}"
 	delete = f"{datadir}/delete.{n}{ext}"
-	con.execute(f"INSERT INTO lineitem FROM '{lineitem}'")
-	con.execute(f"INSERT INTO orders FROM '{orders}'")
-	con.execute(f"DELETE FROM orders WHERE o_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
-	con.execute(f"DELETE FROM lineitem WHERE l_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
-	con.commit()
+	con0.execute(f"INSERT INTO lineitem FROM '{lineitem}'")
+	con0.execute(f"INSERT INTO orders FROM '{orders}'")
+	con0.execute(f"DELETE FROM orders WHERE o_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
+	con0.execute(f"DELETE FROM lineitem WHERE l_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
+	con0.commit()
 	print(f"done refresh {n}")
 
 
@@ -134,15 +123,15 @@ def timeit(fun, p):
 	return time.time() - start
 
 def refresh(ns):
-	con = con0.cursor()
 	for n in ns:
-		RF(con, n)
+		RF(con0, n)
 
 n_refresh = max(round(scale_factor * 0.1), 1)
 
+start = time.time()
 time_rf1 = timeit(RF1, 1)
-time_q = query(1)
 time_rf2 = timeit(RF2, 1)
+refresh_duration = time.time() - start
 
 #tpch_power_at_size = round((3600*scale_factor)/ ((time_q*time_rf1*time_rf2)**(1/24)), 2)
 #print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
@@ -172,12 +161,9 @@ throughput_measurement_interval = round(time.time() - start, 2)
 #tpch_qphh_at_size = round((tpch_power_at_size * tpch_throughput_at_size)**(1/2), 2)
 
 print()
-if load_duration is None:
-	load_duration_str = "n/a (ran on cached database)"
-else:
-	load_duration_str = f"{load_duration:.1f} seconds"
-print(f"tpch_load_time                  = {load_duration_str}")
-print(f"throughput_measurement_interval = {throughput_measurement_interval:.2f}")
+print(f"tpch_load_time                  = {load_duration:.2f}")
+print(f"tpch_refresh_duration           = {refresh_duration:.2f}")
+#print(f"throughput_measurement_interval = {throughput_measurement_interval:.2f}")
 #print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
 #print(f"tpch_throughput_at_size         = {tpch_throughput_at_size:.2f}")
 #print(f"tpch_qphh_at_size               = {tpch_qphh_at_size:.2f}")
