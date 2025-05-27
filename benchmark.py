@@ -121,17 +121,10 @@ def refresh(ns):
 		RF(con0, n)
 
 n_refresh = 10
-
-start = time.time()
-RF1(1)
-RF2(1)
-refresh_duration = time.time() - start
-
 #tpch_power_at_size = round((3600*scale_factor)/ ((time_q*time_rf1*time_rf2)**(1/24)), 2)
 #print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
 
 start = time.time()
-
 
 threads = []
 print(f"Running {streams} query streams, {n_refresh} refresh sets")
@@ -148,16 +141,9 @@ threads.append(r)
 for t in threads:
 	t.join()
 
+refresh_duration = time.time() - start
+
 proceed = False
 
-throughput_measurement_interval = round(time.time() - start, 2)
-#tpch_throughput_at_size = round((streams * 22 * 3600) / throughput_measurement_interval * scale_factor, 2)
-#tpch_qphh_at_size = round((tpch_power_at_size * tpch_throughput_at_size)**(1/2), 2)
-
-print()
 print(f"tpch_load_time                  = {load_duration:.2f}")
 print(f"tpch_refresh_duration           = {refresh_duration:.2f}")
-#print(f"throughput_measurement_interval = {throughput_measurement_interval:.2f}")
-#print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
-#print(f"tpch_throughput_at_size         = {tpch_throughput_at_size:.2f}")
-#print(f"tpch_qphh_at_size               = {tpch_qphh_at_size:.2f}")
