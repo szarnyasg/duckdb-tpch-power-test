@@ -21,10 +21,6 @@ if (not os.path.exists(datadir)):
 	print(f"Data directory {datadir} does not exist, exiting")
 	exit(-1)
 
-template_db_file = f'{datadir}/tpch_template.duckdb'
-
-db_file = f'{datadir}/tpch.duckdb'
-
 # from section 5.3.4 of tpch spec
 scale_factor_streams_map = {1: 2, 10: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9}
 streams = scale_factor_streams_map[scale_factor]
@@ -73,30 +69,21 @@ def monitor():
 
 threading.Thread(target=monitor).start()
 
-# create db template file if not exists
-if os.path.exists(db_file):
-	os.remove(db_file)
-wal_file = f"{db_file}.wal"
-if os.path.exists(wal_file):
-	os.remove(wal_file)
-
-if not os.path.exists(template_db_file):
-	print(f"Begin loading into {template_db_file}")
-	start = time.time()
-	con = duckdb.connect(template_db_file)
-	schema = pathlib.Path('schema.sql').read_text()
-	con.execute(schema)
-	for t in ['customer', 'lineitem', 'nation', 'orders', 'part', 'partsupp', 'region', 'supplier']:
-		con.execute(f"COPY {t} FROM '{datadir}/{t}.tbl'")
-	con.commit()
-	con.execute("CHECKPOINT")
-	con.execute("CHECKPOINT")
-	con.close()
-	load_duration = time.time() - start
-	print(f"Done loading in {load_duration:.1f} seconds")
-else:
-	load_duration = None
-	print(f"Use cached database from {template_db_file}")
+print(f"Begin loading")
+start = time.time()
+con = duckdb.connect()
+con.sql("ATTACH 'ducklake:metadata.ducklake' AS my_ducklake (DATA_PATH 'data_files');")
+con.sql("USE my_ducklake;")
+schema = pathlib.Path('schema.sql').read_text()
+con.execute(schema)
+for t in ['customer', 'lineitem', 'nation', 'orders', 'part', 'partsupp', 'region', 'supplier']:
+	con.execute(f"COPY {t} FROM '{datadir}/{t}.tbl'")
+con.commit()
+con.execute("CHECKPOINT")
+con.execute("CHECKPOINT")
+con.close()
+load_duration = time.time() - start
+print(f"Done loading in {load_duration:.1f} seconds")
 
 shutil.copyfile(template_db_file, db_file)
 con0 = duckdb.connect(db_file)
@@ -104,26 +91,7 @@ con0.execute(f"SET wal_autocheckpoint='{scale_factor}MB'")
 # con0.execute("SET threads='1'")
 
 def query(n):
-	print(f"Starting query stream {n}")
-	con = con0.cursor()
-	queries = pathlib.Path(f'{datadir}/queries{n}.sql').read_text().split(";")
-	timings = []
-	query_idx = 1
-	for q in queries:
-		if not 'select' in q:
-			continue
-		start = time.time()
-		con.execute("BEGIN TRANSACTION READ ONLY")
-		con.execute(q)
-		con.execute("COMMIT")
-		duration = time.time() - start
-		print(f"Done query {n} {query_idx} {round(duration, 2)}")
-		timings.append(duration)
-		query_idx = query_idx + 1
-	con.close()
-	time_prod = functools.reduce(operator.mul, timings)
-	print(f"Done query stream {n}")
-	return time_prod
+	pass
 
 def RF1(n):
 	con = con0.cursor()
@@ -176,8 +144,8 @@ time_rf1 = timeit(RF1, 1)
 time_q = query(1)
 time_rf2 = timeit(RF2, 1)
 
-tpch_power_at_size = round((3600*scale_factor)/ ((time_q*time_rf1*time_rf2)**(1/24)), 2)
-print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
+#tpch_power_at_size = round((3600*scale_factor)/ ((time_q*time_rf1*time_rf2)**(1/24)), 2)
+#print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
 
 start = time.time()
 
@@ -200,8 +168,8 @@ for t in threads:
 proceed = False
 
 throughput_measurement_interval = round(time.time() - start, 2)
-tpch_throughput_at_size = round((streams * 22 * 3600) / throughput_measurement_interval * scale_factor, 2)
-tpch_qphh_at_size = round((tpch_power_at_size * tpch_throughput_at_size)**(1/2), 2)
+#tpch_throughput_at_size = round((streams * 22 * 3600) / throughput_measurement_interval * scale_factor, 2)
+#tpch_qphh_at_size = round((tpch_power_at_size * tpch_throughput_at_size)**(1/2), 2)
 
 print()
 if load_duration is None:
@@ -210,6 +178,6 @@ else:
 	load_duration_str = f"{load_duration:.1f} seconds"
 print(f"tpch_load_time                  = {load_duration_str}")
 print(f"throughput_measurement_interval = {throughput_measurement_interval:.2f}")
-print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
-print(f"tpch_throughput_at_size         = {tpch_throughput_at_size:.2f}")
-print(f"tpch_qphh_at_size               = {tpch_qphh_at_size:.2f}")
+#print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
+#print(f"tpch_throughput_at_size         = {tpch_throughput_at_size:.2f}")
+#print(f"tpch_qphh_at_size               = {tpch_qphh_at_size:.2f}")
