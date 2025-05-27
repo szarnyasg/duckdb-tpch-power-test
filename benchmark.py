@@ -22,8 +22,7 @@ if (not os.path.exists(datadir)):
 	exit(-1)
 
 # from section 5.3.4 of tpch spec
-scale_factor_streams_map = {1: 2, 10: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9}
-streams = scale_factor_streams_map[scale_factor]
+streams = 1
 
 print(f"Scale factor {scale_factor}")
 use_parquet = True
@@ -126,7 +125,7 @@ def refresh(ns):
 	for n in ns:
 		RF(con0, n)
 
-n_refresh = max(round(scale_factor * 0.1), 1)
+n_refresh = 10
 
 start = time.time()
 time_rf1 = timeit(RF1, 1)
