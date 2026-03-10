@@ -1,5 +1,4 @@
-# 2024-08-21, initial version, hannes@duckdblabs.com
-# 2025-06-30, encryption, hannes@duckdblabs.com
+# 2025-05-20, hannes@duckdblabs.com
 
 import threading
 import duckdb
@@ -12,10 +11,6 @@ import shutil
 import psutil
 import datetime
 
-## config
-encryption = False
-use_parquet = True
-## should be it
 scale_factor = int(os.environ.get("SF"))
 
 print(f"Running the TPC-H Benchmark on scale factor {scale_factor}")
@@ -26,19 +21,19 @@ if (not os.path.exists(datadir)):
 	print(f"Data directory {datadir} does not exist, exiting")
 	exit(-1)
 
-template_db_file = f'{datadir}/tpch_template.duckdb'
+template_db_metadata = f'{datadir}/tpch_template.ducklake'
+db_metadata = f'{datadir}/tpch_ducklake.ducklake'
+db_files    = f'{datadir}/tpch_ducklake_files'
 
-db_file = f'{datadir}/tpch.duckdb'
-
-if encryption:
-	template_db_file = f'{datadir}/tpch_template_encypted.duckdb'
-	db_file = f'{datadir}/tpch_encrypted.duckdb'
+# TODO
+ducklake_extension_binary='/Users/hannes/source/ducklake/build/release/extension/ducklake/ducklake.duckdb_extension'
 
 # from section 5.3.4 of tpch spec
-scale_factor_streams_map = {1: 2, 10: 3, 20: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9}
+scale_factor_streams_map = {1: 2, 10: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9}
 streams = scale_factor_streams_map[scale_factor]
 
 print(f"Scale factor {scale_factor}")
+use_parquet = True
 reader = 'read_csv'
 ext = ''
 if use_parquet:
@@ -48,9 +43,7 @@ if use_parquet:
 else:
 	print("CSV refresh")
 
-timestamp = str(datetime.datetime.now(datetime.UTC)).replace(' ','T').replace(':', '-')
-logfile = f'log-sf{scale_factor}-{timestamp}.tsv'
-
+logfile = f'log-sf{scale_factor}-{str(datetime.datetime.now(datetime.UTC)).replace(' ', 'T').replace(':', '-')}.tsv'
 proceed = True
 
 def monitor():
@@ -64,89 +57,67 @@ def monitor():
 		'cpu_user',
 		'cpu_system',
 		'memory_rss',
-		'memory_vms',
-		'read_bytes',
-		'write_bytes'
+		'memory_vms'
 		]).encode('utf8') + b'\n')
 	start = time.time()
-
-	disk_info = psutil.disk_io_counters()
-	start_read_bytes = disk_info.read_bytes
-	start_write_bytes = disk_info.write_bytes
-
 	while proceed:
 		cpu_times = proc.cpu_times()
 		memory_info = proc.memory_info()
-		disk_info = psutil.disk_io_counters()
 		log.write('\t'.join(str(x) for x in [
 			round(time.time()-start,2),
 			round(proc.cpu_percent()),
 			round(cpu_times.user,2),
 			round(cpu_times.system,2),
 			memory_info.rss,
-			memory_info.vms,
-			disk_info.read_bytes - start_read_bytes,
-			disk_info.write_bytes - start_write_bytes
+			memory_info.vms
 			]).encode('utf8') + b'\n')
 		time.sleep(1)
 		log.flush()
 
-
-def get_connection(db_filename):
-	con = duckdb.connect()
-
-	if encryption:
-		con.execute('INSTALL httpfs; LOAD httpfs;')
-		con.execute(f"ATTACH '{db_filename}' AS db (ENCRYPTION_KEY 'asdf', STORAGE_VERSION 'latest')")
-	else:
-		con.execute(f"ATTACH '{db_filename}' AS db (STORAGE_VERSION 'latest')")
-
-	con.execute('USE db')
-
-	#con.execute("SET memory_limit='8GB'")
-	return con
-
-def clone_connection(con0):
-	con = con0.cursor()
-	con.execute('USE db')
-	return con
+threading.Thread(target=monitor).start()
 
 # create db template file if not exists
-if os.path.exists(db_file):
-	os.remove(db_file)
-wal_file = f"{db_file}.wal"
-if os.path.exists(wal_file):
-	os.remove(wal_file)
+if os.path.exists(db_metadata):
+	os.remove(db_metadata)
 
-if not os.path.exists(template_db_file):
-	print(f"Begin loading into {template_db_file}")
+if not os.path.exists(template_db_metadata):
+	print(f"Begin loading into {template_db_metadata} / {db_files}")
 	start = time.time()
-	con = get_connection(template_db_file)
+	con = duckdb.connect(config = {"allow_unsigned_extensions": "true"})
+	# TODO
+	con.execute(f"LOAD '{ducklake_extension_binary}'")
+	con.execute(f"ATTACH 'ducklake:{template_db_metadata}' AS tpch (DATA_PATH '{db_files}')")
+	con.execute('USE tpch')
+	#con.execute("SET enable_external_file_cache='false'")
+
+
 	schema = pathlib.Path('schema.sql').read_text()
 	con.execute(schema)
 	for t in ['customer', 'lineitem', 'nation', 'orders', 'part', 'partsupp', 'region', 'supplier']:
 		con.execute(f"COPY {t} FROM '{datadir}/{t}.tbl'")
 	con.commit()
-	con.execute("CHECKPOINT")
-	con.execute("CHECKPOINT")
 	con.close()
 	load_duration = time.time() - start
 	print(f"Done loading in {load_duration:.1f} seconds")
 else:
 	load_duration = None
-	print(f"Use cached database from {template_db_file}")
+	print(f"Use cached database from {template_db_metadata}")
 
-shutil.copyfile(template_db_file, db_file)
+shutil.copyfile(template_db_metadata, db_metadata)
 
-threading.Thread(target=monitor).start()
+con0 = duckdb.connect(config = {"allow_unsigned_extensions": "true"} )
+con0.execute(f"LOAD '{ducklake_extension_binary}'")
+con0.execute(f"ATTACH 'ducklake:{db_metadata}' AS tpch (DATA_PATH '{db_files}')")
+con0.execute('USE tpch')
+#con0.execute("SET enable_external_file_cache='false'")
 
-con0 = get_connection(db_file)
-#con0.execute(f"SET wal_autocheckpoint='{scale_factor}MB'")
-#con0.execute("SET threads='1'")
+
+print(con0.execute("FROM lineitem SELECT count(*)").fetchone()[0])
 
 def query(n):
 	print(f"Starting query stream {n}")
-	con = clone_connection(con0)
+	con = con0.cursor()
+	con.execute('USE tpch')
 	queries = pathlib.Path(f'{datadir}/queries{n}.sql').read_text().split(";")
 	timings = []
 	query_idx = 1
@@ -167,7 +138,8 @@ def query(n):
 	return time_prod
 
 def RF1(n):
-	con = clone_connection(con0)
+	con = con0.cursor()
+	con.execute('USE tpch')
 	con.begin()
 	lineitem = f"{datadir}/lineitem.tbl.u{n}{ext}"
 	orders = f"{datadir}/orders.tbl.u{n}{ext}"
@@ -178,7 +150,9 @@ def RF1(n):
 
 
 def RF2(n):
-	con = clone_connection(con0)
+	con = con0.cursor()
+	con.execute('USE tpch')
+
 	con.begin()
 	delete = f"{datadir}/delete.{n}{ext}"
 	con.execute(f"DELETE FROM orders WHERE o_orderkey IN (SELECT column0 FROM {reader}('{delete}'))")
@@ -207,19 +181,18 @@ def timeit(fun, p):
 	return time.time() - start
 
 def refresh(ns):
-	con = clone_connection(con0)
+	con = con0.cursor()
+	con.execute('USE tpch')
 	for n in ns:
 		RF(con, n)
 
 n_refresh = max(round(scale_factor * 0.1), 1)
 
 time_rf1 = timeit(RF1, 1)
-start = time.time()
 time_q = query(1)
-power_total_queries_duration = time.time() - start
 time_rf2 = timeit(RF2, 1)
+
 tpch_power_at_size = round((3600*scale_factor)/ ((time_q*time_rf1*time_rf2)**(1/24)), 2)
-print(f"power_total_queries_duration    = {power_total_queries_duration:.2f}")
 print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
 
 start = time.time()
@@ -245,8 +218,6 @@ proceed = False
 throughput_measurement_interval = round(time.time() - start, 2)
 tpch_throughput_at_size = round((streams * 22 * 3600) / throughput_measurement_interval * scale_factor, 2)
 tpch_qphh_at_size = round((tpch_power_at_size * tpch_throughput_at_size)**(1/2), 2)
-print(f"Logged to {logfile}")
-
 
 print()
 if load_duration is None:
@@ -255,7 +226,6 @@ else:
 	load_duration_str = f"{load_duration:.1f} seconds"
 print(f"tpch_load_time                  = {load_duration_str}")
 print(f"throughput_measurement_interval = {throughput_measurement_interval:.2f}")
-print(f"power_total_queries_duration    = {power_total_queries_duration:.2f}")
 print(f"tpch_power_at_size              = {tpch_power_at_size:.2f}")
 print(f"tpch_throughput_at_size         = {tpch_throughput_at_size:.2f}")
 print(f"tpch_qphh_at_size               = {tpch_qphh_at_size:.2f}")

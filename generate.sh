@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# beware: this script is only good up to sf1000, beyond we need more query streams and more update sets
+
 set -euxo pipefail
 
 DIR=gen/sf$SF
