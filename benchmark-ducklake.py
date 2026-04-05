@@ -25,8 +25,8 @@ template_db_metadata = f'{datadir}/tpch_template.ducklake'
 db_metadata = f'{datadir}/tpch_ducklake.ducklake'
 db_files    = f'{datadir}/tpch_ducklake_files'
 
-# TODO
-ducklake_extension_binary='/Users/hannes/source/ducklake/build/release/extension/ducklake/ducklake.duckdb_extension'
+con.execute(f"FORCE INSTALL ducklake FROM core_nightly;")
+con.execute(f"LOAD ducklake;")
 
 # from section 5.3.4 of tpch spec
 scale_factor_streams_map = {1: 2, 10: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9}
@@ -84,8 +84,7 @@ if not os.path.exists(template_db_metadata):
 	print(f"Begin loading into {template_db_metadata} / {db_files}")
 	start = time.time()
 	con = duckdb.connect(config = {"allow_unsigned_extensions": "true"})
-	# TODO
-	con.execute(f"LOAD '{ducklake_extension_binary}'")
+
 	con.execute(f"ATTACH 'ducklake:{template_db_metadata}' AS tpch (DATA_PATH '{db_files}')")
 	con.execute('USE tpch')
 	#con.execute("SET enable_external_file_cache='false'")
