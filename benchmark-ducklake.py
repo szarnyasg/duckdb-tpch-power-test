@@ -104,8 +104,6 @@ else:
 
 shutil.copyfile(template_db_metadata, db_metadata)
 
-con0 = duckdb.connect(config = {"allow_unsigned_extensions": "true"} )
-con0.execute(f"LOAD '{ducklake_extension_binary}'")
 con0.execute(f"ATTACH 'ducklake:{db_metadata}' AS tpch (DATA_PATH '{db_files}')")
 con0.execute('USE tpch')
 #con0.execute("SET enable_external_file_cache='false'")
