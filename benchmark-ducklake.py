@@ -83,7 +83,7 @@ if os.path.exists(db_metadata):
 if not os.path.exists(template_db_metadata):
 	print(f"Begin loading into {template_db_metadata} / {db_files}")
 	start = time.time()
-	con = duckdb.connect(config = {"allow_unsigned_extensions": "true"})
+	con = duckdb.connect()
 
 	con.execute(f"ATTACH 'ducklake:{template_db_metadata}' AS tpch (DATA_PATH '{db_files}')")
 	con.execute('USE tpch')
@@ -104,6 +104,7 @@ else:
 
 shutil.copyfile(template_db_metadata, db_metadata)
 
+con0 = duckdb.connect()
 con0.execute(f"ATTACH 'ducklake:{db_metadata}' AS tpch (DATA_PATH '{db_files}')")
 con0.execute('USE tpch')
 #con0.execute("SET enable_external_file_cache='false'")
