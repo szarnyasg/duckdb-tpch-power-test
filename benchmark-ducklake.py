@@ -25,8 +25,8 @@ template_db_metadata = f'{datadir}/tpch_template.ducklake'
 db_metadata = f'{datadir}/tpch_ducklake.ducklake'
 db_files    = f'{datadir}/tpch_ducklake_files'
 
-con.execute(f"FORCE INSTALL ducklake FROM core_nightly;")
-con.execute(f"LOAD ducklake;")
+duckdb.sql(f"FORCE INSTALL ducklake FROM core_nightly;")
+duckdb.sql(f"LOAD ducklake;")
 
 # from section 5.3.4 of tpch spec
 scale_factor_streams_map = {1: 2, 10: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9}
