@@ -35,7 +35,7 @@ if encryption:
 	db_file = f'{datadir}/tpch_encrypted.duckdb'
 
 # from section 5.3.4 of tpch spec
-scale_factor_streams_map = {1: 2, 10: 3, 20: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9}
+scale_factor_streams_map = {1: 2, 10: 3, 20: 3, 30: 4, 100: 5, 300: 6, 1000: 7, 3000: 8, 10000: 9, 30000: 10, 100000: 11}
 streams = scale_factor_streams_map[scale_factor]
 
 print(f"Scale factor {scale_factor}")
