@@ -6,7 +6,7 @@ set -euxo pipefail
 
 DIR=gen/sf$SF
 DBGEN_PREFIX=tpch_tools_3.0.1/dbgen
-STREAMS=$(python3 -c "print(max(round($SF * 0.1), 1))")
+STREAMS=$(python3 -c "print(max(round($SF * 0.1), 1) + 1)")
 rm -rf $DIR
 mkdir -p $DIR
 
