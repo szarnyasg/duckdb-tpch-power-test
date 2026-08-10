@@ -211,7 +211,7 @@ def refresh(ns):
 	for n in ns:
 		RF(con, n)
 
-n_refresh = max(round(scale_factor * 0.1), 1)
+n_refresh = streams
 
 time_rf1 = timeit(RF1, 1)
 start = time.time()
